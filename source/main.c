@@ -16,6 +16,13 @@
 #include <dirent.h>
 #include <fat.h>
 
+#ifdef WII
+	#include <wiiuse/wpad.h>
+#endif
+
+#include "poke.h"
+#include "me.h"
+
 //from my tests 50us seems to be the lowest
 //safe si transfer delay in between calls
 #define SI_TRANS_DELAY 50
@@ -27,7 +34,8 @@ void printmain()
 {
 	printf("\x1b[2J");
 	printf("\x1b[37m");
-	printf("GBA Link Cable Dumper v1.5 by FIX94\n");
+	printf("Pokemon Generation 3 Event Distribution by suloku\n\n");
+	printf("Based on GBA Link Cable Dumper v1.5 by FIX94\n");
 	printf("Save Support based on SendSave by Chishm\n");
 	printf("GBA BIOS Dumper by Dark Fader\n \n");
 }
@@ -195,6 +203,76 @@ void fatalError(char *msg)
 	sleep(5);
 	exit(0);
 }
+
+void displayPrintTickets( int cursor_position, int game, int language )
+{
+	printf("\x1b[14;2H");
+	
+	printf("Select your event:\n\n");
+	printf("\x1b[16;0H");
+
+	switch(language)
+	{
+		case 1: //JAP
+			switch (game)
+			{
+				case 0: //RS
+					printf("     Eon Ticket\n");
+					break;
+				case 1: //E
+					printf("     Eon Ticket\n");
+					printf("     Mystic Ticket 2005\n");
+					printf("     Old Sea Map\n");
+					break;
+				case 2: //FRLG
+					printf("     Aurora Ticket 2004\n");
+					printf("     Mystic Ticket 2005\n");
+					break;
+			}
+			break;
+		case 2: //ENG
+			switch (game)
+			{
+				case 0: //RS
+					printf("     Eon Ticket (e-card)\n");
+					printf("     Eon Ticket (nintendo Italy)\n");
+					break;
+				case 1: //E
+					printf("     Aurora Ticket\n");
+					printf("     Mystic Ticket\n");
+					break;
+				case 2: //FRLG
+					printf("     Aurora Ticket\n");
+					//printf("     Mystic Ticket\n");
+					break;
+			}
+			break;
+		default: //FRE-ITA-GER-ESP
+			switch (game)
+			{
+				case 0: //RS
+					printf("     Eon Ticket\n");
+					break;
+				case 1: //E
+					printf("     Aurora Ticket\n");
+					break;
+				case 2: //FRLG
+					printf("     Aurora Ticket\n");
+					break;
+			}
+			break;
+	}
+	//Print cursor
+	printf("\x1b[16;0H");
+	int i = 0;
+	for (i=0; i<cursor_position;i++)
+	{printf("\n");}
+	printf("  -->");
+	
+	printf("\x1b[20;0H");
+
+}
+
 int main(int argc, char *argv[]) 
 {
 	void *xfb = NULL;
@@ -214,21 +292,15 @@ int main(int argc, char *argv[])
 	CON_InitEx(rmode, x, y, w, h);
 	VIDEO_ClearFrameBuffer(rmode, xfb, COLOR_BLACK);
 	PAD_Init();
+#ifdef WII
+	WPAD_Init();
+#endif
 	cmdbuf = memalign(32,32);
 	resbuf = memalign(32,32);
 	u8 *testdump = memalign(32,0x400000);
 	if(!testdump) return 0;
-	if(!fatInitDefault())
-	{
-		printmain();
-		fatalError("ERROR: No usable device found to write dumped files to!");
-	}
-	mkdir("/dumps", S_IREAD | S_IWRITE);
-	if(!dirExists("/dumps"))
-	{
-		printmain();
-		fatalError("ERROR: Could not create dumps folder, make sure you have a supported device connected!");
-	}
+	u8 *testdump2 = memalign(32,0x400000);
+	if(!testdump2) return 0;
 	int i;
 	while(1)
 	{
@@ -250,9 +322,16 @@ int main(int argc, char *argv[])
 					break;
 			}
 			PAD_ScanPads();
+#ifdef WII
+			WPAD_ScanPads();
+#endif
 			VIDEO_WaitVSync();
 			if(PAD_ButtonsHeld(0))
 				endproc();
+#ifdef WII
+			if (WPAD_ButtonsHeld(0))
+				endproc();
+#endif
 		}
 		if(resval & SI_GBA)
 		{
@@ -304,13 +383,26 @@ int main(int argc, char *argv[])
 			{
 				printmain();
 				printf("Press A once you have a GBA Game inserted.\n");
-				printf("Press Y to backup the GBA BIOS.\n \n");
 				PAD_ScanPads();
+#ifdef WII
+				WPAD_ScanPads();
+#endif
 				VIDEO_WaitVSync();
 				u32 btns = PAD_ButtonsDown(0);
+#ifdef WII
+				u32 btnsWii = WPAD_ButtonsDown(0);
+#endif
+#ifdef WII
+				if(btns&PAD_BUTTON_START || btnsWii&WPAD_BUTTON_HOME)
+#else
 				if(btns&PAD_BUTTON_START)
+#endif
 					endproc();
+#ifdef WII
+				else if(btns&PAD_BUTTON_A || btnsWii&WPAD_BUTTON_A)
+#else
 				else if(btns&PAD_BUTTON_A)
+#endif
 				{
 					if(recv() == 0) //ready
 					{
@@ -335,209 +427,366 @@ int main(int argc, char *argv[])
 						printf("Game ID: %.4s\n",(char*)(testdump+0xAC));
 						printf("Company ID: %.2s\n",(char*)(testdump+0xB0));
 						printf("ROM Size: %02.02f MB\n",((float)(gbasize/1024))/1024.f);
-						if(savesize > 0)
+						
+						//Get game/language from GAME ID
+						int language = 0;
+						int game = 0;
+						int maxoptions = 0;
+						
+						char lang_[8];
+						sprintf(lang_, "%.4s", (char*)(testdump+0xAC));
+						
+						switch(lang_[3])
+						{
+							case 0x4A: //JAP
+								language = 1;
+								break;
+							case 0x45: //ENG
+								language = 2;
+								break;
+							case 0x46: //FRE
+								language = 3;
+								break;
+							case 0x49: //ITA
+								language = 4;
+								break;
+							case 0x44: //GER
+								language = 5;
+								break;
+							case 0x53: //ESP
+								language = 7;
+								break;
+							default:
+								language = 2; //English is compatible with most carts and holds more events than other EUR langs, but this point should never be reached.
+								break;
+						}
+
+						if ( strncmp("AXV", (char*)(testdump+0xAC), 3) == 0 || strncmp("AXP", (char*)(testdump+0xAC), 3) == 0 ) // R S
+						{
+							game = 0;
+						}
+						else if ( strncmp("BPE", (char*)(testdump+0xAC), 3) == 0 ) //E
+						{
+							game = 1;
+						}
+						else if ( strncmp("BPR", (char*)(testdump+0xAC), 3) == 0 || strncmp("BPG", (char*)(testdump+0xAC), 3) == 0  ) //FR LG
+						{
+							game = 2;
+						}
+						else{
+							game = 3; //Unknown
+						}
+						
+						//Set cursor options
+						if (game != 3)
+						{
+							switch(language)
+							{
+								case 1: //JAP
+									switch (game)
+									{
+										case 0: //RS
+											maxoptions = 0;
+											break;
+										case 1: //E
+											maxoptions = 2;
+											break;
+										case 2: //FRLG
+											maxoptions = 1;
+											break;
+									}
+									break;
+								case 2: //ENG
+									switch (game)
+									{
+										case 0:
+											maxoptions = 1;
+											break;
+										case 1:
+											maxoptions = 1;
+											break;
+										case 2:
+											maxoptions = 0;
+											break;
+									}
+									break;
+								default: //FRE-ITA-GER-ESP
+									switch (game)
+									{
+										case 0:
+											maxoptions = 0;
+											break;
+										case 1:
+											maxoptions = 0;
+											break;
+										case 2:
+											maxoptions = 0;
+											break;
+									}
+									break;
+								
+							}
+						}
+						
+						
+						
+						if(savesize > 0 && game != 3)
+						{
 							printf("Save Size: %02.02f KB\n \n",((float)(savesize))/1024.f);
-						else
-							printf("No Save File\n \n");
-						//generate file paths
-						char gamename[64];
-						sprintf(gamename,"/dumps/%.12s [%.4s%.2s].gba",
-							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
-						fixFName(gamename+7); //fix name behind "/dumps/"
-						char savename[64];
-						sprintf(savename,"/dumps/%.12s [%.4s%.2s].sav",
-							(char*)(testdump+0xA0),(char*)(testdump+0xAC),(char*)(testdump+0xB0));
-						fixFName(savename+7); //fix name behind "/dumps/"
-						//let the user choose the option
-						printf("Press A to dump this game, it will take about %i minutes.\n",gbasize/1024/1024*3/2);
-						printf("Press B if you want to cancel dumping this game.\n");
-						if(savesize > 0)
-						{
-							printf("Press Y to backup this save file.\n");
-							printf("Press X to restore this save file.\n\n");
-						}
-						else
-							printf("\n");
-						int command = 0;
-						while(1)
-						{
-							PAD_ScanPads();
-							VIDEO_WaitVSync();
-							u32 btns = PAD_ButtonsDown(0);
-							if(btns&PAD_BUTTON_START)
-								endproc();
-							else if(btns&PAD_BUTTON_A)
+							
+							
+							int command = 0;
+							int cursor_position = 0;
+							while(1)
 							{
-								command = 1;
-								break;
-							}
-							else if(btns&PAD_BUTTON_B)
-								break;
-							else if(savesize > 0)
-							{
-								if(btns&PAD_BUTTON_Y)
-								{
-									command = 2;
-									break;
-								}
-								else if(btns&PAD_BUTTON_X)
-								{
-									command = 3;
-									break;
-								}
-							}
-						}
-						if(command == 1)
-						{
-							FILE *f = fopen(gamename,"rb");
-							if(f)
-							{
-								fclose(f);
-								command = 0;
-								warnError("ERROR: Game already dumped!\n");
-							}
-						}
-						else if(command == 2)
-						{
-							FILE *f = fopen(savename,"rb");
-							if(f)
-							{
-								fclose(f);
-								command = 0;
-								warnError("ERROR: Save already backed up!\n");
-							}
-						}
-						else if(command == 3)
-						{
-							size_t readsize = 0;
-							FILE *f = fopen(savename,"rb");
-							if(f)
-							{
-								fseek(f,0,SEEK_END);
-								readsize = ftell(f);
-								if(readsize != savesize)
-								{
-									command = 0;
-									warnError("ERROR: Save has the wrong size, aborting restore!\n");
-								}
-								else
-								{
-									rewind(f);
-									fread(testdump,readsize,1,f);
-								}
-								fclose(f);
-							}
-							else
-							{
-								command = 0;
-								warnError("ERROR: No Save to restore!\n");
-							}
-						}
-						send(command);
-						//let gba prepare
-						sleep(1);
-						if(command == 0)
-							continue;
-						else if(command == 1)
-						{
-							//create base file with size
-							printf("Preparing file...\n");
-							createFile(gamename,gbasize);
-							FILE *f = fopen(gamename,"wb");
-							if(!f)
-								fatalError("ERROR: Could not create file! Exit...");
-							printf("Dumping...\n");
-							u32 bytes_read = 0;
-							while(gbasize > 0)
-							{
-								int toread = (gbasize > 0x400000 ? 0x400000 : gbasize);
-								int j;
-								for(j = 0; j < toread; j+=4)
-								{
-									*(vu32*)(testdump+j) = recv();
-									bytes_read+=4;
-									if((bytes_read&0xFFFF) == 0)
-										printf("\r%02.02f MB done",(float)(bytes_read/1024)/1024.f);
-								}
-								fwrite(testdump,toread,1,f);
-								gbasize -= toread;
-							}
-							printf("\nClosing file\n");
-							fclose(f);
-							printf("Game dumped!\n");
-							sleep(5);
-						}
-						else if(command == 2)
-						{
-							//create base file with size
-							printf("Preparing file...\n");
-							createFile(savename,savesize);
-							FILE *f = fopen(savename,"wb");
-							if(!f)
-								fatalError("ERROR: Could not create file! Exit...");
-							printf("Waiting for GBA\n");
-							VIDEO_WaitVSync();
-							u32 readval = 0;
-							while(readval != savesize)
-								readval = __builtin_bswap32(recv());
-							send(0); //got savesize
-							printf("Receiving...\n");
-							for(i = 0; i < savesize; i+=4)
-								*(vu32*)(testdump+i) = recv();
-							printf("Writing save...\n");
-							fwrite(testdump,savesize,1,f);
-							fclose(f);
-							printf("Save backed up!\n");
-							sleep(5);
-						}
-						else if(command == 3)
-						{
-							printf("Sending save\n");
-							VIDEO_WaitVSync();
-							u32 readval = 0;
-							while(readval != savesize)
-								readval = __builtin_bswap32(recv());
-							for(i = 0; i < savesize; i+=4)
-								send(__builtin_bswap32(*(vu32*)(testdump+i)));
-							printf("Waiting for GBA\n");
-							while(recv() != 0)
+								PAD_ScanPads();
+#ifdef WII
+								WPAD_ScanPads();
+#endif
 								VIDEO_WaitVSync();
-							printf("Save restored!\n");
-							send(0);
-							sleep(5);
+								u32 btns = PAD_ButtonsDown(0);
+#ifdef WII
+								u32 btnsWii = WPAD_ButtonsDown(0);
+#endif
+#ifdef WII
+								if(btns&PAD_BUTTON_START || btnsWii&WPAD_BUTTON_HOME)
+#else
+								if(btns&PAD_BUTTON_START)
+#endif
+									endproc();
+#ifdef WII
+								else if(btns&PAD_BUTTON_A || btnsWii&WPAD_BUTTON_A)
+#else
+								if(btns&PAD_BUTTON_A)
+#endif
+								{
+									command = 1;
+									break;
+								}
+								if (btns & PAD_BUTTON_DOWN) { cursor_position++; }
+								if (btns & PAD_BUTTON_UP) { cursor_position--; }
+
+#ifdef WII
+								if (btnsWii & WPAD_BUTTON_DOWN) { cursor_position++; }
+								if (btnsWii & WPAD_BUTTON_UP) { cursor_position--; }
+#endif
+								if (cursor_position < 0) { cursor_position = maxoptions; }
+								if (cursor_position > maxoptions) { cursor_position = 0; }
+								
+								displayPrintTickets( cursor_position, game, language );
+								
+							}
+	
+							if(command == 0)
+								continue;
+							if(command == 1)
+							{
+								send(2);
+								//let gba prepare
+								sleep(1);
+								
+								//create base file with size
+								printf("Getting savegame...\n");
+								printf("Waiting for GBA...");
+								VIDEO_WaitVSync();
+								u32 readval = 0;
+								while(readval != savesize)
+									readval = __builtin_bswap32(recv());
+								send(0); //got savesize
+								printf("Receiving...");
+								for(i = 0; i < savesize; i+=4)
+									*(vu32*)(testdump+i) = recv();
+								
+								printf("done.\n");
+								printf("Distributing event...");
+								
+								//EVENT DISTRO CODE
+								
+								int ret = 0;
+								
+								switch(language)
+								{
+									case 1:
+										switch (game)
+										{
+											case 0:
+												ret = ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_jap, game, language);
+												break;
+											case 1:
+												switch(cursor_position)
+												{
+													case 0:
+														ret = ret = ret = ret = ret = me_inject ((char*)testdump,  NULL, game, language);
+														break;
+													case 1:
+														ret = wc_inject ((char*)testdump, mystic_ticket_E_jap, game, language);
+														break;
+													case 2:
+														ret = wc_inject((char*)testdump, old_map_jap, game, language);
+														break;
+												}
+												break;
+											case 2:
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_jap, game, language);
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_jap, game, language);
+														break;
+												}
+												break;
+										}
+										break;
+									case 2:
+										switch (game)
+										{
+											case 0:
+												switch(cursor_position)
+												{
+													case 0:
+														ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_card_eng, game, language);
+														break;
+													case 1:
+														ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_eng, game, language);
+														break;
+												}
+												break;
+											case 1:
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_E_eng, game, language);
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_E_eng, game, language);
+														break;
+												}
+												break;
+											case 2:
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_eng, game, language);
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_eng, game, language);
+														break;
+												}
+												break;
+										}
+										break;
+									case 3:
+										switch (game)
+										{
+											case 0:
+												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_fre, game, language);
+												break;
+											case 1:
+												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_fre, game, language);
+												break;
+											case 2:
+												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_fre, game, language);
+												break;
+										}
+										break;
+									case 4:
+										switch (game)
+										{
+											case 0:
+												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_ita, game, language);
+												break;
+											case 1:
+												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_ita, game, language);
+												break;
+											case 2:
+												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_ita, game, language);
+												break;
+										}
+										break;
+									case 5:
+										switch (game)
+										{
+											case 0:
+												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_ger, game, language);
+												break;
+											case 1:
+												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_ger, game, language);
+												break;
+											case 2:
+												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_ger, game, language);
+												break;
+										}
+										break;
+									case 7:
+										switch (game)
+										{
+											case 0:
+												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_esp, game, language);
+												break;
+											case 1:
+												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_esp, game, language);
+												break;
+											case 2:
+												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_esp, game, language);
+												break;
+										}
+										break;
+								}
+								
+								
+								if(!ret)
+								{
+									printf("\nCanceled.");
+									sleep(5);
+									continue;
+								}
+								
+								sleep(5);
+								
+								//Now send the save! (testdump holds the save)
+
+								if(recv() == 0) //ready
+									//printf("GBA ready...");
+								VIDEO_WaitVSync();
+								int gbasize = 0;
+								while(gbasize == 0)
+									gbasize = __builtin_bswap32(recv());
+								send(0); //got gbasize
+								u32 savesize = __builtin_bswap32(recv());
+								send(0); //got savesize
+								if(gbasize == -1) 
+								{
+									warnError("\nERROR: No (Valid) GBA Card inserted!\n");
+									continue;
+								}
+								//get rom header
+								for(i = 0; i < 0xC0; i+=4)
+									*(vu32*)(testdump2+i) = recv();
+
+								send(3);
+								//let gba prepare
+								sleep(1);
+								
+								printf("Waiting for GBA...");
+								//printf("Sending save\n");
+								VIDEO_WaitVSync();
+								readval = 0;
+								while(readval != savesize)
+									readval = __builtin_bswap32(recv());
+								for(i = 0; i < savesize; i+=4)
+									send(__builtin_bswap32(*(vu32*)(testdump+i)));
+								//printf("Waiting for GBA\n");
+								while(recv() != 0)
+									VIDEO_WaitVSync();
+								printf("done!\n");
+								printf("Event distribution complete.\n");
+								send(0);
+								sleep(5);
+							}
 						}
-					}
-				}
-				else if(btns&PAD_BUTTON_Y)
-				{
-					const char *biosname = "/dumps/gba_bios.bin";
-					FILE *f = fopen(biosname,"rb");
-					if(f)
-					{
-						fclose(f);
-						warnError("ERROR: BIOS already backed up!\n");
-					}
-					else
-					{
-						//create base file with size
-						printf("Preparing file...\n");
-						createFile(biosname,0x4000);
-						f = fopen(biosname,"wb");
-						if(!f)
-							fatalError("ERROR: Could not create file! Exit...");
-						//send over bios dump command
-						send(4);
-						//the gba might still be in a loop itself
-						sleep(1);
-						//lets go!
-						printf("Dumping...\n");
-						for(i = 0; i < 0x4000; i+=4)
-							*(vu32*)(testdump+i) = recv();
-						fwrite(testdump,0x4000,1,f);
-						printf("Closing file\n");
-						fclose(f);
-						printf("BIOS dumped!\n");
-						sleep(5);
+						else
+						{
+							printf("No Save File. Press START to exit.\n \n");
+						}
 					}
 				}
 			}
