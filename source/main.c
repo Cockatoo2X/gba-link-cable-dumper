@@ -243,7 +243,7 @@ void displayPrintTickets( int cursor_position, int game, int language )
 					break;
 				case 2: //FRLG
 					printf("     Aurora Ticket\n");
-					//printf("     Mystic Ticket\n");
+					printf("     Mystic Ticket\n");
 					break;
 			}
 			break;
@@ -255,9 +255,11 @@ void displayPrintTickets( int cursor_position, int game, int language )
 					break;
 				case 1: //E
 					printf("     Aurora Ticket\n");
+					printf("     Mystic Ticket (USA)\n");
 					break;
 				case 2: //FRLG
 					printf("     Aurora Ticket\n");
+					printf("     Mystic Ticket (USA)\n");
 					break;
 			}
 			break;
@@ -506,7 +508,7 @@ int main(int argc, char *argv[])
 											maxoptions = 1;
 											break;
 										case 2:
-											maxoptions = 0;
+											maxoptions = 1;
 											break;
 									}
 									break;
@@ -517,10 +519,10 @@ int main(int argc, char *argv[])
 											maxoptions = 0;
 											break;
 										case 1:
-											maxoptions = 0;
+											maxoptions = 1;
 											break;
 										case 2:
-											maxoptions = 0;
+											maxoptions = 1;
 											break;
 									}
 									break;
@@ -616,7 +618,7 @@ int main(int argc, char *argv[])
 												switch(cursor_position)
 												{
 													case 0:
-														ret = ret = ret = ret = ret = me_inject ((char*)testdump,  NULL, game, language);
+														ret = me_inject ((char*)testdump,  NULL, game, language);
 														break;
 													case 1:
 														ret = wc_inject ((char*)testdump, mystic_ticket_E_jap, game, language);
@@ -631,6 +633,7 @@ int main(int argc, char *argv[])
 												{
 													case 0:
 														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_jap, game, language);
+														break;
 													case 1:
 														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_jap, game, language);
 														break;
@@ -645,10 +648,10 @@ int main(int argc, char *argv[])
 												switch(cursor_position)
 												{
 													case 0:
-														ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_card_eng, game, language);
+														ret = me_inject ((char*)testdump, eon_ticket_card_eng, game, language);
 														break;
 													case 1:
-														ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_eng, game, language);
+														ret = me_inject ((char*)testdump, eon_ticket_ninti_eng, game, language);
 														break;
 												}
 												break;
@@ -657,6 +660,7 @@ int main(int argc, char *argv[])
 												{
 													case 0:
 														ret = wc_inject((char*)testdump, aurora_ticket_E_eng, game, language);
+														break;
 													case 1:
 														ret = wc_inject((char*)testdump, mystic_ticket_E_eng, game, language);
 														break;
@@ -667,6 +671,7 @@ int main(int argc, char *argv[])
 												{
 													case 0:
 														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_eng, game, language);
+														break;
 													case 1:
 														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_eng, game, language);
 														break;
@@ -678,13 +683,29 @@ int main(int argc, char *argv[])
 										switch (game)
 										{
 											case 0:
-												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_fre, game, language);
+												ret = me_inject ((char*)testdump, eon_ticket_ninti_fre, game, language);
 												break;
 											case 1:
-												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_fre, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_fre, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_E_eng, game, language);
+														break;
+												}
 												break;
 											case 2:
-												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_fre, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_fre, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_eng, game, language);
+														break;
+												}
 												break;
 										}
 										break;
@@ -692,13 +713,29 @@ int main(int argc, char *argv[])
 										switch (game)
 										{
 											case 0:
-												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_ita, game, language);
+												ret = me_inject ((char*)testdump, eon_ticket_ninti_ita, game, language);
 												break;
 											case 1:
-												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_ita, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_ita, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_E_eng, game, language);
+														break;
+												}
 												break;
 											case 2:
-												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_ita, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_ita, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_eng, game, language);
+														break;
+												}
 												break;
 										}
 										break;
@@ -706,13 +743,29 @@ int main(int argc, char *argv[])
 										switch (game)
 										{
 											case 0:
-												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_ger, game, language);
+												ret = me_inject ((char*)testdump, eon_ticket_ninti_ger, game, language);
 												break;
 											case 1:
-												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_ger, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_ger, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_E_eng, game, language);
+														break;
+												}
 												break;
 											case 2:
-												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_ger, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_ger, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_eng, game, language);
+														break;
+												}
 												break;
 										}
 										break;
@@ -720,13 +773,29 @@ int main(int argc, char *argv[])
 										switch (game)
 										{
 											case 0:
-												ret = ret = ret = ret = me_inject ((char*)testdump, eon_ticket_ninti_esp, game, language);
+												ret = me_inject ((char*)testdump, eon_ticket_ninti_esp, game, language);
 												break;
 											case 1:
-												ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_esp, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_E_ninti_esp, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_E_eng, game, language);
+														break;
+												}
 												break;
 											case 2:
-												ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_esp, game, language);
+												switch(cursor_position)
+												{
+													case 0:
+														ret = wc_inject((char*)testdump, aurora_ticket_FRLG_ninti_esp, game, language);
+														break;
+													case 1:
+														ret = wc_inject((char*)testdump, mystic_ticket_FRLG_eng, game, language);
+														break;
+												}
 												break;
 										}
 										break;
